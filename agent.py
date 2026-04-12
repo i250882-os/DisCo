@@ -4,28 +4,30 @@ from google import genai
 from dotenv import load_dotenv
 import os
 from google.genai import types
-from tools.channels import create
+from tools.channels import *
 load_dotenv()
 
 GEMINI_KEY = os.getenv("GEMINI_KEY")
-
-create_channel_function = {
-    "name": "create_channel",
-    "description": "Creates a channel",
+temp  = """
+    "name": "create_voice_channel",
+    "description": "Creates a voice channel", 
     "parameters": {
         "type": "object",
         "properties": {
             "name": {
                 "type": "string",
-                "description": "Name of the channel",
+                "description": "Name of the channel"
             },
         },
-        "required": ["name"],
     },
-}
+"""
+
+SYSTEM_PROMPT = """
+"""
+CONTEXT = ""
 
 async def prompt(text, ctx):
-    tools = types.Tool(function_declarations=[create_channel_function])
+    tools = types.Tool(function_declarations=channel_function_declarations)
     config = types.GenerateContentConfig(tools=[tools])
     client = genai.Client(api_key=GEMINI_KEY)
     response = client.models.generate_content(
