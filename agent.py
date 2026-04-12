@@ -25,9 +25,9 @@ temp  = """
 TOOLS = channel_function_map
 
 SYSTEM_PROMPT = """
+
 """
-CONTEXT = """
-"""
+context = {}
 
 async def execute_tool(ctx, name, args):
     func = TOOLS[name]
@@ -41,42 +41,46 @@ async def execute_tool(ctx, name, args):
 
 tools = types.Tool(function_declarations=channel_function_declarations)
 config = types.GenerateContentConfig(tools=[tools])
-client = genai.Client(api_key=GEMINI_KEY)
- 
+client = genai.Client(api_key=GEMINI_KEY) 
+messages = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
+
 async def prompt(ctx, text):
-    messages = [{"role": "user", "parts": [{"text": text}]}]
-    
+    messages.append({
+        "role": "user",
+        "parts": [{"text": text}]
+    })
     while True:
-        print("DEBUG: Agentic Loop Iteration")
+        print("DEBUG: Agentic Loop Iteration Context: ", messages)
         response = client.models.generate_content(
             model="gemma-4-31b-it",
             contents=messages,
             config=config,
         )
-
+        print("DEBUG: Response Received")
         if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
             return "No response from model"
         part = response.candidates[0].content.parts[0]
 
         if response.function_calls:
-            function_call = response.function_calls[0]
-            name = function_call.name
-            args = {}
-            if function_call.args:
-                args = {k: v for k, v in function_call.args.items()}
+            for function_call in response.function_calls:
+                name = function_call.name
+                args = {}
+                if function_call.args:
+                    args = {k: v for k, v in function_call.args.items()}
 
-            print("\n\nDEBUG: PRINTING THOUGHTS", part.text)
-            print(f"Function to call: {function_call.name}")
-            print(f"ID: {function_call.id}")
-            print(f"Arguments: {function_call.args}")
-            results = await execute_tool(ctx, name, args)
-            
-            messages.append({"role":"model", "parts": [part]})
-            messages.append({
-                "role": "user",
-                "parts": [types.Part(function_response=types.FunctionResponse(name=name, response=results))]
-            })
+                print("\n\nDEBUG: PRINTING THOUGHTS", part.text)
+                print(f"DEBUG: Function to call: {function_call.name}")
+                print(f"DEBUG: Arguments: {function_call.args}")
+                results = await execute_tool(ctx, name, args)
+                
+                messages.append({"role":"model", "parts": [part]})
+                messages.append({
+                    "role": "user",
+                    "parts": [types.Part(function_response=types.FunctionResponse(name=name, response=results))]
+                })
         else:
+            print("DEBUG: FOUND NO FUNCTION CALLS", response.function_calls, part, response)
+            messages.append({"role":"model", "parts": [{"text": response.text}]})
             return response.text
 
 class Listener(commands.Cog):
