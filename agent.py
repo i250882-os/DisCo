@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import os
 from google.genai import types
 from tools.channels import *
+from database import get_config
+
 load_dotenv()
 
 GEMINI_KEY = os.getenv("GEMINI_KEY")
@@ -100,9 +102,11 @@ class Listener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if not message.guild or (message.author.bot or (message.author.id != message.guild.owner_id)):
             return
-        if self.bot.user.mentioned_in(message) or message.channel.id == 1493216433050489022:
+        conf = get_config(message.guild.id)
+        print(conf)
+        if self.bot.user.mentioned_in(message) or message.channel.id == conf["ai_channel_id"]:
             try:
                 async with message.channel.typing():
                     await message.add_reaction("⚡")
