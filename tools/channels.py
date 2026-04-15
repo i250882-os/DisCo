@@ -7,7 +7,7 @@ RESET = "\033[0m"
 # ==== Create Text ====
 create_text_channel_function = {
     "name": "create_text_channel",
-    "description": "Creates a text channel",
+    "description": "Creates a text channel in the server",
     "parameters": {
         "type": "object",
         "properties": {
@@ -15,35 +15,138 @@ create_text_channel_function = {
                 "type": "string",
                 "description": "Name of the channel",
             },
+            "topic": {
+                "type": "string",
+                "description": "The channel topic shown at the top of the channel",
+            },
+            "category_id": {
+                "type": "string",
+                "description": "ID of the category to place this channel under",
+            },
+            "position": {
+                "type": "integer",
+                "description": "Position of the channel in the channel list",
+            },
+            "nsfw": {
+                "type": "boolean",
+                "description": "Whether the channel is NSFW (age-restricted)",
+            },
+            "news": {
+                "type": "boolean",
+                "description": "Whether this is an announcement channel",
+            },
+            "reason": {
+                "type": "string",
+                "description": "Reason for creating the channel (shown in audit log)",
+            },
         },
         "required": ["name"],
     },
 }
-async def create_text_channel(ctx: Context, name: str):
+
+
+async def create_text_channel(
+    ctx: Context,
+    name: str,
+    topic: str,
+    category_id: str,
+    position: int,
+    nsfw: bool,
+    news: bool,
+    reason: str,
+):
     if not ctx.guild:
         return False
-    channel = await ctx.guild.create_text_channel(name)
+    kwargs = {}
+    if topic:
+        kwargs["topic"] = topic
+    if category_id:
+        kwargs["category"] = discord.Object(id=int(category_id))
+    if position is not None:
+        kwargs["position"] = position
+    if nsfw:
+        kwargs["nsfw"] = nsfw
+    if news:
+        kwargs["news"] = news
+    if reason:
+        kwargs["reason"] = reason
+    channel = await ctx.guild.create_text_channel(name, **kwargs)
     if channel:
         return {"channel": "created", "name": channel.name, "id": channel.id}
-    
+
 
 # ==== Create Voice ====
 create_voice_channel_function = {
     "name": "create_voice_channel",
-    "description": "Creates a voice channel", 
+    "description": "Creates a voice channel in the server",
     "parameters": {
         "type": "object",
         "properties": {
             "name": {
                 "type": "string",
-                "description": "Name of the channel"
+                "description": "Name of the voice channel",
+            },
+            "category_id": {
+                "type": "string",
+                "description": "ID of the category to place this channel under",
+            },
+            "position": {
+                "type": "integer",
+                "description": "Position of the channel in the channel list",
+            },
+            "bitrate": {
+                "type": "integer",
+                "description": "Audio bitrate in bits per second (8000 to 96000, or up to 384000 for boosted servers)",
+            },
+            "user_limit": {
+                "type": "integer",
+                "description": "Maximum number of users allowed in the channel (0 for unlimited, max 99)",
+            },
+            "nsfw": {
+                "type": "boolean",
+                "description": "Whether the channel is NSFW (age-restricted)",
+            },
+            "reason": {
+                "type": "string",
+                "description": "Reason for creating the channel (shown in audit log)",
+            },
+            "rtc_region": {
+                "type": "string",
+                "description": "Voice region for the channel (null for automatic)",
             },
         },
+        "required": ["name"],
     },
 }
-async def create_voice_channel(ctx: Context, name: str):
+
+
+async def create_voice_channel(
+    ctx: Context,
+    name: str,
+    category_id: str,
+    position: int,
+    bitrate: int,
+    user_limit: int,
+    nsfw: bool,
+    reason: str,
+    rtc_region: str | None = None,
+):
     if not ctx.guild:
         return False
+    kwargs = {}
+    if category_id:
+        kwargs["category"] = discord.Object(id=int(category_id))
+    if position is not None:
+        kwargs["position"] = position
+    if bitrate is not None:
+        kwargs["bitrate"] = bitrate
+    if user_limit is not None:
+        kwargs["user_limit"] = user_limit
+    if nsfw:
+        kwargs["nsfw"] = nsfw
+    if reason:
+        kwargs["reason"] = reason
+    kwargs["rtc_region"] = rtc_region
     channel = await ctx.guild.create_voice_channel(name)
     if channel:
         return {"channel": "created", "name": channel.name, "id": channel.id}
@@ -52,48 +155,97 @@ async def create_voice_channel(ctx: Context, name: str):
 # ==== Delete Channel ====
 delete_channel_function = {
     "name": "delete_channel",
-    "description": "Deletes voice or text channel", 
+    "description": "Permanently deletes a voice or text channel from the server",
     "parameters": {
         "type": "object",
         "properties": {
             "id": {
                 "type": "string",
-                "description": "ID of the channel"
+                "description": "The unique ID of the channel to delete",
+            },
+            "reason": {
+                "type": "string",
+                "description": "Reason for deleting the channel (shown in audit log)",
             },
         },
+        "required": ["id"],
     },
 }
-async def delete_channel(ctx: Context, id):
+
+
+async def delete_channel(ctx: Context, id: str, reason: str | None = None):
     if not ctx.guild:
         return False
-    if type(id) == str:
-        id = int(id)
-    channel = ctx.guild.get_channel(id)
+
+    channel = ctx.guild.get_channel(int(id))
     if channel:
-        await channel.delete()
+        await channel.delete(reason=reason)
         return {"channel": "deleted", "id": str(id)}
     else:
         return False
 
-# ==== Edit Channel Name ====
-edit_channel_name_function = {
+
+# ==== Edit Channel ====
+edit_channel_function = {
     "name": "edit_channel_name",
-    "description": "Edit name of an exisitng channel", 
+    "description": "Edit properties of an existing channel including name, topic, category, position, and settings",
     "parameters": {
         "type": "object",
         "properties": {
             "id": {
                 "type": "string",
-                "description": "unique ID of the channel"
+                "description": "The unique ID of the channel to edit",
             },
             "new_name": {
                 "type": "string",
-                "description": "New Name of the channel"
+                "description": "New name for the channel",
+            },
+            "topic": {
+                "type": "string",
+                "description": "New topic for the channel (text channels only)",
+            },
+            "category_id": {
+                "type": "string",
+                "description": "ID of the category to move this channel to",
+            },
+            "position": {
+                "type": "integer",
+                "description": "New position of the channel in the channel list",
+            },
+            "nsfw": {
+                "type": "boolean",
+                "description": "Whether the channel should be NSFW (age-restricted)",
+            },
+            "news": {
+                "type": "boolean",
+                "description": "Whether this should be an announcement channel",
+            },
+            "sync_permissions": {
+                "type": "boolean",
+                "description": "Whether to sync permissions with the parent category",
+            },
+            "reason": {
+                "type": "string",
+                "description": "Reason for editing the channel (shown in audit log)",
             },
         },
+        "required": ["id"],
     },
 }
-async def edit_channel_name(ctx: Context, id, new_name: str):
+
+
+async def edit_channel(
+    ctx: Context,
+    id,
+    new_name: str,
+    topic: str,
+    category_id: str,
+    position: int,
+    nsfw: bool,
+    news: bool,
+    sync_permissions: bool,
+    reason: str | None = None,
+):
     if not ctx.guild:
         return False
     if type(id) == str:
@@ -101,93 +253,122 @@ async def edit_channel_name(ctx: Context, id, new_name: str):
 
     channel = ctx.guild.get_channel(id)
     if channel:
+        kwargs = {}
+        if new_name:
+            kwargs["name"] = new_name
+        if topic:
+            kwargs["topic"] = topic
+        if category_id:
+            kwargs["category"] = discord.Object(id=int(category_id))
+        if position is not None:
+            kwargs["position"] = position
+        if nsfw:
+            kwargs["nsfw"] = nsfw
+        if news:
+            kwargs["news"] = news
+        if sync_permissions:
+            kwargs["sync_permissions"] = sync_permissions
+        if reason:
+            kwargs["reason"] = reason
+
         old_name = channel.name
-        await channel.edit(name=new_name)
-        return {"channel": "renamed", "old_name": old_name, "new_name": channel.name}
+        await channel.edit(**kwargs)
+        return {"channel": "edited", "old_name": old_name, "new_name": channel.name}
 
-# ==== Edit Channel Position ====
-edit_channel_position_function = {
-    "name": "edit_channel_position",
-    "description": "Edit position of the channel",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "channel_id": {
-                "type": "string",
-                "description": "unique ID of the channel to be moved"
-            },
-            "position": {
-                "type": "string",
-                "description": "The position in the channel list. This is a number that starts at 0. e.g. the top channel is position 0."
-            },
-            "category_id": {
-                "type": "string",
-                "description": "ID of the category to move to"
-            },
-        },
-        "required": ["channel_id"],
-    },
-}
-async def edit_channel_position(ctx: Context, channel_id= "", position= "", category_id= ""):
-    if not ctx.guild:
-        return False
-
-    channel_id = int(channel_id) if channel_id else -1
-    position = int(position) if position else -1
-    category_id = int(category_id) if category_id else -1
-
-    channel = await ctx.bot.fetch_channel(channel_id)
-    category = await ctx.bot.fetch_channel(category_id)
-    print(DEBUG+"FUNC: VALUES", type(channel), type(category), channel_id, category_id, position)
-    if not channel or (position == -1) and (not isinstance(category, discord.CategoryChannel)): 
-        return False 
-    if isinstance(category, discord.CategoryChannel): 
-        await channel.edit(category=category)
-        print("LOG: CHANNEL MOVED TO CATEGORY")
-    if position != -1:
-        await channel.edit(position=position)
-        print("LOG: CHANNEL MOVED TO POSITION")
-    
-    channel = await ctx.bot.fetch_channel(channel_id)
-    return {"position": channel.position, "category": channel.category.id}
 
 # ==== Edit Channel Permissions ====
-async def edit_permissions(ctx: Context):
-    ...
+#
+# "topic": {},
+# "category_id": {},
+# "position": {},
+# "topic": {},
+# "nsfw": {},
+# "news": {},
+# "reason": {},
+# "sync_permissions": {},
+async def edit_channel_permissions(ctx: Context): ...
+
 
 # ==== Get Channels List =====
 get_channels_function = {
     "name": "get_channels",
-    "description": "Gives list of all the channels in a server, The returned data includes the following information about a channel (id, name, position, category_name, channel_type)", 
+    "description": "Retrieves a list of all channels in the server. Returns channel information including: id, name, position, category_name, and channel_type (text, voice, category, etc.)",
+    "parameters": {
+        "type": "object",
+        "properties": {},
+    },
 }
+
+
 async def get_channels(ctx: Context):
     if not ctx.guild:
         return False
-    channels = [(str(channel.id), channel.name, str(channel.position), channel.category.name if channel.category else "uncatorized", str(channel.type)) for channel in ctx.guild.channels]
+    channels = [
+        (
+            str(channel.id),
+            channel.name,
+            str(channel.position),
+            channel.category.name if channel.category else "uncatorized",
+            str(channel.type),
+        )
+        for channel in ctx.guild.channels
+    ]
     return channels
+
+
+# === Get Server Info ===
+get_server_info_function = {
+    "name": "get_server_info",
+    "description": "Retrieves detailed information about the server including: id, name, owner_id, member_count, channels_count, roles_count, and created_at timestamp",
+    "parameters": {
+        "type": "object",
+        "properties": {},
+    },
+}
+
+
+async def get_server_info(ctx: Context):
+    if not ctx.guild:
+        return False
+    return {
+        "id": str(ctx.guild.id),
+        "name": ctx.guild.name,
+        "owner_id": str(ctx.guild.owner_id),
+        "member_count": ctx.guild.member_count,
+        "channels_count": len(ctx.guild.channels),
+        "roles_count": len(ctx.guild.roles),
+        "created_at": str(ctx.guild.created_at),
+    }
+
 
 # === Create Category ===
 create_category_function = {
     "name": "create_category",
-    "description": "creats a category of channels",
+    "description": "Creates a category to organize channels. Categories group text and voice channels together.",
     "parameters": {
         "type": "object",
         "properties": {
             "name": {
                 "type": "string",
-                "description": "Name of teh category"
+                "description": "Name of the category",
+            },
+            "reason": {
+                "type": "string",
+                "description": "Reason for creating the category (shown in audit log)",
             },
         },
+        "required": ["name"],
     },
 }
-async def create_category(ctx: Context, name):
+
+
+async def create_category(ctx: Context, name: str, reason: str | None = None):
     if not ctx.guild:
         return False
-    category = await ctx.guild.create_category(name=name)
+    category = await ctx.guild.create_category(name=name, reason=reason)
     if category:
-        return {"category": "created", "name": category.name}
+        return {"category": "created", "name": category.name, "id": category.id}
     return False
-
 
 
 channel_function_declarations = [
@@ -195,16 +376,16 @@ channel_function_declarations = [
     create_voice_channel_function,
     delete_channel_function,
     get_channels_function,
-    edit_channel_name_function,
+    edit_channel_function,
     create_category_function,
-    edit_channel_position_function,
+    get_server_info_function,
 ]
 channel_function_map = {
     "create_text_channel": create_text_channel,
     "create_voice_channel": create_voice_channel,
     "delete_channel": delete_channel,
     "get_channels": get_channels,
-    "edit_channel_name": edit_channel_name,
+    "edit_channel_name": edit_channel,
     "create_category": create_category,
-    "edit_channel_position": edit_channel_position
+    "get_server_info": get_server_info,
 }

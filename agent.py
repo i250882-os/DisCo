@@ -26,8 +26,12 @@ temp  = """
 TOOLS = channel_function_map
 
 SYSTEM_PROMPT = """
+Youre a discord admin agent.
 
+Rules to follow:
+- Before creationg action always make user say "go ahead", youre allowed to call read only tools like getting channels but for action tools, always make sure user says "go ahead" and then execute the plan
 """
+
 context = {}
 
 async def execute_tool(ctx, name, args):
