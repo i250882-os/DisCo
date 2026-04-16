@@ -12,16 +12,33 @@ from database import get_config
 load_dotenv()
 
 GEMINI_KEY = os.getenv("GEMINI_KEY")
+BOT_ID = os.getenv("BOT_ID")
 TOOLS = channel_function_map
-SYSTEM_PROMPT = """
-You are DisCo, a Discord server administration agent. Your Discord user ID is 1492826579431329833.
-
-In Discord, <@ID> means a user mention — if the ID matches yours, you are being directly addressed. <#ID> references a channel, and <@&ID> references a role.
-
-Rules:
-- For read-only actions (e.g. listing channels, getting server info), you may proceed freely.
-- For any action that creates, modifies, or deletes anything on the server, explain your plan first and wait for the user to explicitly say "go ahead" before executing. Do not act without fresh explicit approval.
+SYSTEM_PROMPT = f"""
+You are DisCo, a Discord server administration agent. Your Discord user ID is {BOT_ID}.
+Discord Format:
+- <@ID> = mention a user (if ID matches yours, you are being directly addressed)
+- <#ID> = reference a channel
+- <@&ID> = reference a role
+You can use <#ID> format when mentioning channels in your responses.
+Available Channel Management Tools:
+- create_text_channel: Create text channels. Consider setting a topic to describe the channel's purpose. For important announcements, use news=true to convert it to an announcement channel. Use private=true for staff-only and restricted-access channels.
+- create_voice_channel: Create voice channels. You can set bitrate quality, user limits, and optionally restrict to NSFW. Use private=true for staff and private channels.
+- create_category: Organize channels into categories for better server structure.
+- edit_channel: Modify existing channels. Update names, topics, convert to announcement channels, change categories, make channels private, etc.
+- delete_channel: Permanently remove channels.
+- get_channels: List all channels in the server.
+- get_server_info: Retrieve server statistics.
+Guidelines:
+- When creating or editing channels, think about using topics to explain the channel's purpose.
+- When appropriate, use categories to organize related channels together.
+- For channels intended for important announcements, consider using the news=true flag.
+- Use NSFW flag when channels contain age-restricted content.
+- Use private=true when creating staff channels, restricted-access channels, or other channels that should not be visible to regular members.
+- Read-only actions (getting channels, server info) can be done freely.
+- For any action that creates, modifies, or deletes channels, explain your plan first and wait for the user to explicitly say "go ahead" or give a similar sign before executing.
 """
+
 
 def get_context(ctx):
     msg = ctx.message
@@ -58,10 +75,17 @@ async def execute_tool(ctx: Context, name, args):
     conf = get_config(ctx.guild.id)
     print(conf)
     logs_channel = ctx.guild.get_channel(int(conf["log_channel_id"]))
+    log_msg = ctx.message
     try:
         func = TOOLS[name]
         print(DEBUG + "Tool Execution of" + RESET, name, func, "Args", args)
-        await logs_channel.send(f"{name} function was called!")
+        log = f"""
+                ## Action Log:
+                - Action: {name}
+                - Action Details: {args}
+                - Triggering Message: {ctx.message.jump_url}
+            """
+        log_msg = await logs_channel.send(log)
         res = await func(ctx, **args)
         print(DEBUG + "Tool Retrun" + RESET, name, res)
         if res:
@@ -71,6 +95,11 @@ async def execute_tool(ctx: Context, name, args):
     except Exception as e:
         print(f"\033[31m EXCEPTION in {name}: {type(e).__name__}: {e}")
         traceback.print_exc()
+        log = f"""
+            Error Log:
+                Error During: {log_msg.jump_url}
+                Error Details: {str(e)}
+        """
         await logs_channel.send(str(e))
         return {"error": str(e)}
 
@@ -85,7 +114,9 @@ executing = defaultdict(bool)
 
 async def prompt(ctx):
     message_context = get_context(ctx)
-    messages[ctx.guild.id].append({"role": "user", "parts": [{"text": message_context}]})
+    messages[ctx.guild.id].append(
+        {"role": "user", "parts": [{"text": message_context}]}
+    )
     while True:
         print(
             DEBUG + "Agentic Loop Iteration Context: " + RESET,
@@ -138,8 +169,12 @@ async def prompt(ctx):
                 part,
                 response,
             )
-            messages[ctx.guild.id].append({"role": "model", "parts": [{"text": response.text}]})
-            return response.text
+            text = response.text
+            if text:
+                messages[ctx.guild.id].append(
+                    {"role": "model", "parts": [{"text": text}]}
+                )
+            return text or "Done."
 
 
 class Listener(commands.Cog):
@@ -149,10 +184,15 @@ class Listener(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         ctx = await self.bot.get_context(message)
-        if not message.guild or (message.author.bot or (message.author.id != message.guild.owner_id)):
+        if not message.guild or (
+            message.author.bot or (message.author.id != message.guild.owner_id)
+        ):
             return
         conf = get_config(message.guild.id)
-        if (self.bot.user.mentioned_in(message) or message.channel.id == conf["ai_channel_id"]):
+        if (
+            self.bot.user.mentioned_in(message)
+            or message.channel.id == conf["ai_channel_id"]
+        ):
             if executing[ctx.guild.id]:
                 await message.add_reaction("❌")
                 return
@@ -169,6 +209,7 @@ class Listener(commands.Cog):
                 traceback.print_exc()
                 await message.channel.send(str(e))
                 executing[ctx.guild.id] = False
+
 
 async def setup(bot):
     await bot.add_cog(Listener(bot))

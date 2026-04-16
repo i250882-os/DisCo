@@ -2,6 +2,7 @@ import discord
 from logs import logger
 from discord.ext.commands import Context
 from database import get_config
+
 DEBUG = "\033[33m"
 RESET = "\033[0m"
 
@@ -54,6 +55,7 @@ async def create_text_channel(
     position: int | None = None,
     nsfw: bool | None = None,
     news: bool | None = None,
+    private: bool | None = None,
     reason: str | None = None,
 ):
     if not ctx.guild:
@@ -64,9 +66,11 @@ async def create_text_channel(
     if category_id:
         c_channel = ctx.guild.get_channel(int(category_id))
         if isinstance(c_channel, discord.CategoryChannel):
-            kwargs["category"] = c_channel 
+            kwargs["category"] = c_channel
         else:
-            logger.critical(f"Failed to get CategoryChannel for id: {category_id} got type {type(c_channel)} instead")
+            logger.critical(
+                f"Failed to get CategoryChannel for id: {category_id} got type {type(c_channel)} instead"
+            )
     if position is not None:
         kwargs["position"] = position
     if nsfw:
@@ -75,6 +79,10 @@ async def create_text_channel(
         kwargs["news"] = news
     if reason:
         kwargs["reason"] = reason
+    if private:
+        kwargs["overwrites"] = {
+            ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        }
     channel = await ctx.guild.create_text_channel(name, **kwargs)
     if channel:
         return {"channel": "created", "name": channel.name, "id": str(channel.id)}
@@ -111,6 +119,10 @@ create_voice_channel_function = {
                 "type": "boolean",
                 "description": "Whether the channel is NSFW (age-restricted)",
             },
+            "private": {
+                "type": "boolean",
+                "description": "Whether the channel is private",
+            },
             "reason": {
                 "type": "string",
                 "description": "Reason for creating the channel (shown in audit log)",
@@ -133,6 +145,7 @@ async def create_voice_channel(
     bitrate: int | None = None,
     user_limit: int | None = None,
     nsfw: bool | None = None,
+    private: bool | None = None,
     reason: str | None = None,
     rtc_region: str | None = None,
 ):
@@ -142,9 +155,11 @@ async def create_voice_channel(
     if category_id:
         c_channel = ctx.guild.get_channel(int(category_id))
         if isinstance(c_channel, discord.CategoryChannel):
-            kwargs["category"] = c_channel 
+            kwargs["category"] = c_channel
         else:
-            logger.critical(f"Failed to get CategoryChannel for id: {category_id} got type {type(c_channel)} instead")
+            logger.critical(
+                f"Failed to get CategoryChannel for id: {category_id} got type {type(c_channel)} instead"
+            )
     if position is not None:
         kwargs["position"] = position
     if bitrate is not None:
@@ -153,6 +168,10 @@ async def create_voice_channel(
         kwargs["user_limit"] = user_limit
     if nsfw:
         kwargs["nsfw"] = nsfw
+    if private:
+        kwargs["overwrites"] = {
+            ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        }
     if reason:
         kwargs["reason"] = reason
     kwargs["rtc_region"] = rtc_region
@@ -177,7 +196,7 @@ delete_channel_function = {
                 "description": "Reason for deleting the channel (shown in audit log)",
             },
         },
-        "required": ["id"],
+        "required": ["id", "reason"],
     },
 }
 
@@ -233,6 +252,10 @@ edit_channel_function = {
                 "type": "boolean",
                 "description": "Whether this should be an announcement channel",
             },
+            "private": {
+                "type": "boolean",
+                "description": "Whether the channel is private",
+            },
             "sync_permissions": {
                 "type": "boolean",
                 "description": "Whether to sync permissions with the parent category",
@@ -242,7 +265,7 @@ edit_channel_function = {
                 "description": "Reason for editing the channel (shown in audit log)",
             },
         },
-        "required": ["id"],
+        "required": ["id", "reason"],
     },
 }
 
@@ -256,6 +279,7 @@ async def edit_channel(
     position: int | None = None,
     nsfw: bool | None = None,
     news: bool | None = None,
+    private: bool | None = None,
     sync_permissions: bool | None = None,
     reason: str | None = None,
 ):
@@ -279,6 +303,10 @@ async def edit_channel(
             kwargs["nsfw"] = nsfw
         if news:
             kwargs["news"] = news
+        if private:
+            kwargs["overwrites"] = {
+                ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            }
         if sync_permissions:
             kwargs["sync_permissions"] = sync_permissions
         if reason:

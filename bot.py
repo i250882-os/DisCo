@@ -18,8 +18,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    guild = discord.Object(id=TESTING_ENV_ID)
-    synced = await bot.tree.sync(guild=guild)
+    synced = await bot.tree.sync()
     print(f"Synced commands: {len(synced)}")
     print(f"Logged in as {bot.user} ({bot.user.id})")
     print(f"Intents: {bot.intents.message_content}")
@@ -28,7 +27,6 @@ async def on_ready():
 @bot.tree.command(
     name="initialize",
     description="First thing to do after adding the bot",
-    guild=discord.Object(id=TESTING_ENV_ID),
 )
 async def init(interaction: discord.Interaction):
     exists = check_initialized(interaction.guild_id)
