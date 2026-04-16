@@ -1,4 +1,5 @@
 import discord
+from collections import defaultdict
 import traceback
 from discord.ext import commands
 from google import genai
@@ -11,22 +12,7 @@ from database import get_config
 load_dotenv()
 
 GEMINI_KEY = os.getenv("GEMINI_KEY")
-temp = """
-    "name": "create_voice_channel",
-    "description": "Creates a voice channel", 
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string",
-                "description": "Name of the channel"
-            },
-        },
-    },
-"""
-
 TOOLS = channel_function_map
-
 SYSTEM_PROMPT = """
 You are DisCo, a Discord server administration agent. Your Discord user ID is 1492826579431329833.
 
@@ -37,7 +23,33 @@ Rules:
 - For any action that creates, modifies, or deletes anything on the server, explain your plan first and wait for the user to explicitly say "go ahead" before executing. Do not act without fresh explicit approval.
 """
 
-context = {}
+def get_context(ctx):
+    msg = ctx.message
+
+    res = ""
+    res += f"Author: {msg.author} (id={msg.author.id})\n"
+    res += f"Channel: {ctx.channel} (id={ctx.channel.id})\n"
+
+    if ctx.guild:
+        res += f"Guild: {ctx.guild.name} (id={ctx.guild.id})\n"
+
+    res += f"Content: {msg.content}\n"
+
+    if msg.reference and msg.reference.resolved:
+        ref = msg.reference.resolved
+        res += f"Replying to: {ref.author} -> {ref.content}\n"
+
+    if msg.attachments:
+        res += "Attachments:\n"
+        for a in msg.attachments:
+            res += f"- {a.filename}: {a.url}\n"
+
+    if msg.mentions:
+        res += "Mentions:\n"
+        for u in msg.mentions:
+            res += f"- {u} (id={u.id})\n"
+
+    return res
 
 
 async def execute_tool(ctx: Context, name, args):
@@ -64,13 +76,16 @@ async def execute_tool(ctx: Context, name, args):
 
 
 tools = types.Tool(function_declarations=channel_function_declarations)
-config = types.GenerateContentConfig(tools=[tools])
+config = types.GenerateContentConfig(tools=[tools], system_instruction=SYSTEM_PROMPT)
 client = genai.Client(api_key=GEMINI_KEY)
-messages = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
+
+messages = defaultdict(list)
+executing = defaultdict(bool)
 
 
-async def prompt(ctx, text):
-    messages.append({"role": "user", "parts": [{"text": text}]})
+async def prompt(ctx):
+    message_context = get_context(ctx)
+    messages[ctx.guild.id].append({"role": "user", "parts": [{"text": message_context}]})
     while True:
         print(
             DEBUG + "Agentic Loop Iteration Context: " + RESET,
@@ -78,7 +93,7 @@ async def prompt(ctx, text):
         )
         response = client.models.generate_content(
             model="gemma-4-31b-it",
-            contents=messages,
+            contents=messages[ctx.guild.id],
             config=config,
         )
         print(DEBUG + "Response Received" + RESET)
@@ -103,8 +118,8 @@ async def prompt(ctx, text):
                 print(DEBUG + f"DEBUG: Arguments: {RESET}{function_call.args}")
                 results = await execute_tool(ctx, name, args)
 
-                messages.append({"role": "model", "parts": [part]})
-                messages.append(
+                messages[ctx.guild.id].append({"role": "model", "parts": [part]})
+                messages[ctx.guild.id].append(
                     {
                         "role": "user",
                         "parts": [
@@ -123,7 +138,7 @@ async def prompt(ctx, text):
                 part,
                 response,
             )
-            messages.append({"role": "model", "parts": [{"text": response.text}]})
+            messages[ctx.guild.id].append({"role": "model", "parts": [{"text": response.text}]})
             return response.text
 
 
@@ -133,28 +148,27 @@ class Listener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.guild or (
-            message.author.bot or (message.author.id != message.guild.owner_id)
-        ):
+        ctx = await self.bot.get_context(message)
+        if not message.guild or (message.author.bot or (message.author.id != message.guild.owner_id)):
             return
         conf = get_config(message.guild.id)
-        if (
-            self.bot.user.mentioned_in(message)
-            or message.channel.id == conf["ai_channel_id"]
-        ):
+        if (self.bot.user.mentioned_in(message) or message.channel.id == conf["ai_channel_id"]):
+            if executing[ctx.guild.id]:
+                await message.add_reaction("❌")
+                return
             try:
+                executing[ctx.guild.id] = True
+                await message.add_reaction("⚡")
                 async with message.channel.typing():
-                    await message.add_reaction("⚡")
-                    ctx = await self.bot.get_context(message)
-                    res = await prompt(ctx, message.content)
+                    res = await prompt(ctx)
                     print(DEBUG + "DEBUG: Return value of Prompt" + RESET, res)
                 await message.channel.send(res)
-
+                executing[ctx.guild.id] = False
             except Exception as e:
                 print(f"\033[31m EXCEPTION in Prompt: {type(e).__name__}: {e}")
                 traceback.print_exc()
                 await message.channel.send(str(e))
-
+                executing[ctx.guild.id] = False
 
 async def setup(bot):
     await bot.add_cog(Listener(bot))
