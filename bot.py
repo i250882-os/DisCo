@@ -33,6 +33,8 @@ async def init(interaction: discord.Interaction):
     logger.debug(f"DEBUG: Return in init {exists}")
     if not interaction.guild:
         await interaction.response.send_message("Please run the command in a Server")
+    elif interaction.guild.owner_id != interaction.user.id:
+        await interaction.response.send_message("Only server owners can run this command")
     elif exists:
         await interaction.response.send_message("Server Already Initialized")
     else:

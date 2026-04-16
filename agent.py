@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 from google.genai import types
 from tools.channels import *
-from database import get_config
+from database import check_initialized, get_config
 
 load_dotenv()
 
@@ -184,15 +184,20 @@ class Listener(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         ctx = await self.bot.get_context(message)
-        if not message.guild or (
-            message.author.bot or (message.author.id != message.guild.owner_id)
-        ):
+        if (not message.guild) or message.author.bot:
             return
         conf = get_config(message.guild.id)
+        exists = check_initialized(message.guild.id)
         if (
             self.bot.user.mentioned_in(message)
             or message.channel.id == conf["ai_channel_id"]
         ):
+            if message.author.id != message.guild.owner_id:
+                await ctx.channel.send("Only guild owners can prompt.")
+                return
+            if not exists:
+                await ctx.channel.send("Run `/initialize` to get started!")
+                return
             if executing[ctx.guild.id]:
                 await message.add_reaction("❌")
                 return
