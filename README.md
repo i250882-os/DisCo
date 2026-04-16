@@ -50,10 +50,5 @@ python bot.py
 - Read only operations can run immediately.
 - Any action that creates, edits, or deletes server resources requires explicit confirmation.
 
-## Development Notes
-- Conversation history is stored in memory by guild.
-- `disco.db` holds server configuration (ai channel, log channel, initialized flag).
-- The CI workflow in `.github/workflows/deploy.yml` deploys on push to `master`.
-
 ## License
 MIT
