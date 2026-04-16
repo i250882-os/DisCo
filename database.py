@@ -1,4 +1,6 @@
 import sqlite3
+from logs import logger
+
 
 def init_database():
     conn = sqlite3.connect("disco.db")
@@ -19,39 +21,44 @@ def init_database():
 def check_initialized(guild_id) -> bool:
     conn = sqlite3.connect("disco.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT 1 FROM server_configs WHERE guild_id = ? LIMIT 1", (guild_id,))
+    cursor.execute(
+        "SELECT 1 FROM server_configs WHERE guild_id = ? LIMIT 1", (str(guild_id),)
+    )
     exists = cursor.fetchone() is not None
-    print(exists)
     cursor.close()
-    return exists 
+    return exists
 
-def initialize_guild(guild_id, log_channel_id, ai_channel):
+
+def initialize_guild(guild_id, log_channel_id, ai_channel_id):
     exists = check_initialized(guild_id)
+    logger.debug(f"DEBUG: Init Func {guild_id} {log_channel_id} {ai_channel_id}")
     if exists:
         return {"message": "Server Already Initialized!!"}
     conn = sqlite3.connect("disco.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO user (guild_id, log_channel_id, ai_channel_id, initialized) VALUES (?, ?, ?, ?)", (guild_id, log_channel_id, ai_channel, True))
+    cursor.execute(
+        "INSERT INTO server_configs (guild_id, log_channel_id, ai_channel_id, initialized) VALUES (?, ?, ?, ?)",
+        (str(guild_id), str(log_channel_id), str(ai_channel_id), True),
+    )
+    conn.commit()
     cursor.close()
     return {"message": "Server Initialized!!"}
+
 
 def get_config(guild_id):
     exists = check_initialized(guild_id)
     if not exists:
-        return {
-            "initialized": False,
-            "log_channel_id": None,
-            "ai_channel_id": None
-        }
+        return {"initialized": False, "log_channel_id": None, "ai_channel_id": None}
     else:
         conn = sqlite3.connect("disco.db")
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM server_configs WHERE guild_id = ?", (guild_id,))
+        cursor.execute("SELECT * FROM server_configs WHERE guild_id = ?", (str(guild_id),))
         row = cursor.fetchone()
+        print(row)
         cursor.close()
         return {
-            "log_channel_id": row["log_channel_id"],
-            "ai_channel_id": row["ai_channel_id"] 
+            "log_channel_id": int(row["log_channel_id"]),
+            "ai_channel_id": int(row["ai_channel_id"]),
         }

@@ -1,6 +1,7 @@
 import discord
+from logs import logger
 from discord.ext.commands import Context
-
+from database import get_config
 DEBUG = "\033[33m"
 RESET = "\033[0m"
 
@@ -178,6 +179,10 @@ async def delete_channel(ctx: Context, id: str, reason: str | None = None):
         return False
 
     channel = ctx.guild.get_channel(int(id))
+    conf = get_config(ctx.guild.id).values()
+    logger.debug(f"{conf} {id in conf}")
+    if int(id) in conf:
+        return {"channel": "not deleted", "reason": "Cant delete special AI channels"}
     if channel:
         await channel.delete(reason=reason)
         return {"channel": "deleted", "id": str(id)}
