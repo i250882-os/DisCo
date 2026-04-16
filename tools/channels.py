@@ -49,12 +49,12 @@ create_text_channel_function = {
 async def create_text_channel(
     ctx: Context,
     name: str,
-    topic: str,
-    category_id: str,
-    position: int,
-    nsfw: bool,
-    news: bool,
-    reason: str,
+    topic: str | None = None,
+    category_id: str | None = None,
+    position: int | None = None,
+    nsfw: bool | None = None,
+    news: bool | None = None,
+    reason: str | None = None,
 ):
     if not ctx.guild:
         return False
@@ -62,7 +62,11 @@ async def create_text_channel(
     if topic:
         kwargs["topic"] = topic
     if category_id:
-        kwargs["category"] = discord.Object(id=int(category_id))
+        c_channel = ctx.guild.get_channel(int(category_id))
+        if isinstance(c_channel, discord.CategoryChannel):
+            kwargs["category"] = c_channel 
+        else:
+            logger.critical(f"Failed to get CategoryChannel for id: {category_id} got type {type(c_channel)} instead")
     if position is not None:
         kwargs["position"] = position
     if nsfw:
@@ -73,7 +77,7 @@ async def create_text_channel(
         kwargs["reason"] = reason
     channel = await ctx.guild.create_text_channel(name, **kwargs)
     if channel:
-        return {"channel": "created", "name": channel.name, "id": channel.id}
+        return {"channel": "created", "name": channel.name, "id": str(channel.id)}
 
 
 # ==== Create Voice ====
@@ -124,19 +128,23 @@ create_voice_channel_function = {
 async def create_voice_channel(
     ctx: Context,
     name: str,
-    category_id: str,
-    position: int,
-    bitrate: int,
-    user_limit: int,
-    nsfw: bool,
-    reason: str,
+    category_id: str | None = None,
+    position: int | None = None,
+    bitrate: int | None = None,
+    user_limit: int | None = None,
+    nsfw: bool | None = None,
+    reason: str | None = None,
     rtc_region: str | None = None,
 ):
     if not ctx.guild:
         return False
     kwargs = {}
     if category_id:
-        kwargs["category"] = discord.Object(id=int(category_id))
+        c_channel = ctx.guild.get_channel(int(category_id))
+        if isinstance(c_channel, discord.CategoryChannel):
+            kwargs["category"] = c_channel 
+        else:
+            logger.critical(f"Failed to get CategoryChannel for id: {category_id} got type {type(c_channel)} instead")
     if position is not None:
         kwargs["position"] = position
     if bitrate is not None:
@@ -148,9 +156,9 @@ async def create_voice_channel(
     if reason:
         kwargs["reason"] = reason
     kwargs["rtc_region"] = rtc_region
-    channel = await ctx.guild.create_voice_channel(name)
+    channel = await ctx.guild.create_voice_channel(name, **kwargs)
     if channel:
-        return {"channel": "created", "name": channel.name, "id": channel.id}
+        return {"channel": "created", "name": channel.name, "id": str(channel.id)}
 
 
 # ==== Delete Channel ====
@@ -192,7 +200,7 @@ async def delete_channel(ctx: Context, id: str, reason: str | None = None):
 
 # ==== Edit Channel ====
 edit_channel_function = {
-    "name": "edit_channel_name",
+    "name": "edit_channel",
     "description": "Edit properties of an existing channel including name, topic, category, position, and settings",
     "parameters": {
         "type": "object",
@@ -242,13 +250,13 @@ edit_channel_function = {
 async def edit_channel(
     ctx: Context,
     id,
-    new_name: str,
-    topic: str,
-    category_id: str,
-    position: int,
-    nsfw: bool,
-    news: bool,
-    sync_permissions: bool,
+    new_name: str | None = None,
+    topic: str | None = None,
+    category_id: str | None = None,
+    position: int | None = None,
+    nsfw: bool | None = None,
+    news: bool | None = None,
+    sync_permissions: bool | None = None,
     reason: str | None = None,
 ):
     if not ctx.guild:
@@ -372,7 +380,7 @@ async def create_category(ctx: Context, name: str, reason: str | None = None):
         return False
     category = await ctx.guild.create_category(name=name, reason=reason)
     if category:
-        return {"category": "created", "name": category.name, "id": category.id}
+        return {"category": "created", "name": category.name, "id": str(category.id)}
     return False
 
 
@@ -390,7 +398,7 @@ channel_function_map = {
     "create_voice_channel": create_voice_channel,
     "delete_channel": delete_channel,
     "get_channels": get_channels,
-    "edit_channel_name": edit_channel,
+    "edit_channel": edit_channel,
     "create_category": create_category,
     "get_server_info": get_server_info,
 }
