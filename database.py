@@ -32,8 +32,14 @@ def check_initialized(guild_id) -> bool:
 def initialize_guild(guild_id, log_channel_id, ai_channel_id):
     exists = check_initialized(guild_id)
     logger.debug(f"DEBUG: Init Func {guild_id} {log_channel_id} {ai_channel_id}")
+    msg = f"""
+    - Mention the bot or just start typing prompts in <#{ai_channel_id}>
+    - See Action and Error Logs in <#{log_channel_id}>
+    
+    Note: Only server owner can prompt the bot.
+    """
     if exists:
-        return {"message": "Server Already Initialized!!"}
+        return {"message": "Server Already Initialized!!\n" + msg}
     conn = sqlite3.connect("disco.db")
     cursor = conn.cursor()
     cursor.execute(
@@ -42,7 +48,7 @@ def initialize_guild(guild_id, log_channel_id, ai_channel_id):
     )
     conn.commit()
     cursor.close()
-    return {"message": "Server Initialized!!"}
+    return {"message": "Server Initialized!!\n" + msg}
 
 
 def get_config(guild_id):
