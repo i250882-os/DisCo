@@ -1,16 +1,59 @@
 # DisCo
 
-## TODO
+DisCo is a Discord server administration bot powered by AI LLM. Its a co-pilot for your discord server, the aim for this project is to make it good enough that you only need one manager in your discord server, this bot.
 
-1. Error Handling and Resilience 
-2. Logging and Monitoring 
-3. Caching 
-4. Permission System 
-5. Audit Trail 
-6. Configuration 
-7. Testing 
-8. Conversation Context Management 
-9. Tool Validation 
-10. Performance 
-11. Documentation 
- 
+## Features
+- Create public/private channels
+- Create nsfw and voice channels
+- Create channel categories
+- Move channel into categories
+- Move categories around
+- Move channels around inside a category 
+- Edit Text and Voice channel settings like:
+   - Bitrate for voice channels
+   - RTC region for voice channels
+   - Toggle Nsfw
+   - Change Name
+   - Change channel topic
+
+## Requirements
+- Discord bot token
+- Gemini API key
+
+## Setup
+1. Create a `.env` file in the project root:
+
+```env
+DISCORD_TOKEN=your_discord_bot_token
+GEMINI_KEY=your_gemini_api_key
+BOT_ID=you_discord_bot_user_id
+```
+
+2. Install dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. Run the bot:
+
+```bash
+python bot.py
+```
+
+## How It Works
+- Start by running the `/initialize` command
+- The bot listens for messages in the configured `ai-chat` channel or when mentioned.
+- Only the server owner can interact with it.
+- Read only operations can run immediately.
+- Any action that creates, edits, or deletes server resources requires explicit confirmation.
+
+## Development Notes
+- Conversation history is stored in memory by guild.
+- `disco.db` holds server configuration (ai channel, log channel, initialized flag).
+- The CI workflow in `.github/workflows/deploy.yml` deploys on push to `master`.
+
+## License
+MIT
