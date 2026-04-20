@@ -16,6 +16,12 @@ DisCo is a Discord server administration bot powered by AI LLM. Its a co-pilot f
    - Change Name
    - Change channel topic
 
+## Demo Server Limitations
+- In demo server, everyone is allowed to use the bot, when in reality its meant to be used by server owners only.
+- Due to discord behaviour, empty categories will not be shown, you must add a channel to a category to see it.
+- Bot's behaviour feels less agentic, a light and realy cheap 31b model, gemma-4 is being used, so sometimes it will feel like bot is not doing what its told.
+- To prevent abuse, every user gets only 10 prompts and 10 mins to use the bot in demo server.
+
 ## Requirements
 - Discord bot token
 - Gemini API key
