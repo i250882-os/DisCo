@@ -19,7 +19,9 @@ DisCo is a Discord server administration bot powered by AI LLM. Its a co-pilot f
 ## Demo Server Limitations
 - In demo server, everyone is allowed to use the bot, when in reality its meant to be used by server owners only.
 - Due to discord behaviour, empty categories will not be shown, you must add a channel to a category to see it.
+- Making a channel private would sometimes do nothing as channels are already private in demo server.
 - Bot's behaviour feels less agentic, a light and realy cheap 31b model, gemma-4 is being used, so sometimes it will feel like bot is not doing what its told.
+- Responses will feel slow because of using a light model for thinking.
 - To prevent abuse, every user gets only 10 prompts and 10 mins to use the bot in demo server.
 
 ## Requirements
